@@ -53,6 +53,11 @@ const (
 	AckTask        TaskType = "ack"
 )
 
+var TerminalTasks map[TaskType]struct{} = map[TaskType]struct{}{
+	TradeTask: {},
+	DataTask:  {},
+}
+
 func (t TaskType) MarshalJSON() ([]byte, error) {
 	return json.Marshal(string(t))
 }
@@ -177,6 +182,7 @@ type DeployReq struct {
 
 // sent by users, trade copy, etc. -> used to fetch data or req executions
 type TerminalMiscData struct {
+	TerminalId    string `json:"terminal_id"`
 	AccountId     int    `json:"account_login"`
 	Server        string `json:"server"`
 	IntervalSec   int    `json:"interval_seconds,omitempty"`

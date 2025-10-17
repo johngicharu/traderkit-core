@@ -8,27 +8,33 @@ import (
 )
 
 type Controller struct {
-	Registry    *terminal.Registry
-	ServerComms *servercomms.ServerConnector
+	TerminalComms *terminal.TerminalConnector
+	ServerComms   *servercomms.ServerConnector
 }
 
 func NewController(ctx context.Context, conf common.ControllerConfig) (*Controller, error) {
-	registry, err := terminal.NewRegistry()
+	termComms, err := terminal.NewTerminalConnector()
 	if err != nil {
 		return nil, err
 	}
 
-	wsServer, err := servercomms.NewServerConnector(ctx, conf, registry)
+	wsServer, err := servercomms.NewServerConnector(ctx, conf, termComms)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Controller{
-		Registry:    registry,
-		ServerComms: wsServer,
+		TerminalComms: termComms,
+		ServerComms:   wsServer,
 	}, nil
 }
 
 func (ctrl *Controller) Run() error {
 	return ctrl.ServerComms.Start()
 }
+
+/**
+dispatcher
+registry (list of terminals)
+controller definition
+*/

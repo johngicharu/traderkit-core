@@ -22,7 +22,7 @@ type ServerConnector struct {
 
 	conn          *websocket.Conn
 	dialer        *websocket.Dialer
-	registry      *terminal.Registry // registry of present accounts
+	registry      *terminal.TerminalConnector // registry of present accounts
 	taskRequests  chan common.TaskReq
 	taskResponses chan common.TaskRes
 	registered    bool // whether we informed the server or not that we are live
@@ -33,7 +33,7 @@ type ServerConnector struct {
 	mu sync.RWMutex
 }
 
-func NewServerConnector(parentCtx context.Context, conf common.ControllerConfig, registry *terminal.Registry) (*ServerConnector, error) {
+func NewServerConnector(parentCtx context.Context, conf common.ControllerConfig, registry *terminal.TerminalConnector) (*ServerConnector, error) {
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	return &ServerConnector{

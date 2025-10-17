@@ -2,40 +2,31 @@ package terminal
 
 import (
 	"backend/internal/common"
+	"context"
+	"fmt"
 	"sync"
-	"time"
 )
-
-type Terminal struct {
-	Id               string
-	Type             common.TerminalType
-	Login            int
-	Password         string
-	InvestorPassword string
-	Server           string
-	Broker           string
-	BrokerId         string // used to name the broker files
-	TradeAllowed     bool
-	UpdatedAt        time.Time
-}
 
 type accountType struct {
 	Login  int
 	Server string
 }
 
-type Registry struct {
-	mu       sync.RWMutex
-	accounts map[string]accountType
+type TerminalConnector struct {
+	mu        sync.RWMutex
+	accounts  map[string]accountType
+	terminals map[string]*Terminal
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
-func NewRegistry() (*Registry, error) {
-	return &Registry{
+func NewTerminalConnector() (*TerminalConnector, error) {
+	return &TerminalConnector{
 		accounts: make(map[string]accountType),
 	}, nil
 }
 
-func (r *Registry) AddAccount(id string, login int, server string) {
+func (r *TerminalConnector) AddAccount(id string, login int, server string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -45,9 +36,28 @@ func (r *Registry) AddAccount(id string, login int, server string) {
 	}
 }
 
-func (r *Registry) RemoveAccount(id string) {
+func (r *TerminalConnector) RemoveAccount(id string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	delete(r.accounts, id)
+}
+
+func (r *TerminalConnector) HandleTerminalConn() {}
+
+func (r *TerminalConnector) SendToTerminal(req common.TaskReq) error {
+	if req.MiscDetails == nil {
+		return fmt.Errorf("invalid request - missing terminal id")
+	}
+
+	termId := req.MiscDetails.TerminalId
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if terminal, ok := r.terminals[termId]; ok {
+		terminal.SendTask(req)
+	}
+
+	return nil
 }

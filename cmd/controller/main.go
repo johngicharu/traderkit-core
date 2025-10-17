@@ -45,7 +45,7 @@ func main() {
 	// to int
 	intCtrlCapacity, err := strconv.Atoi(controllerCapacity)
 	if err != nil {
-		log.Fatal("Invalid CONTROLLER_CAPACITY set: %s - int required", controllerCapacity)
+		log.Fatal("Invalid CONTROLLER_CAPACITY set - int required")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
