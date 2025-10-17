@@ -4,6 +4,7 @@ import (
 	"backend/internal/server/api"
 	"backend/internal/server/manager"
 	"context"
+	"log"
 	"net/http"
 )
 
@@ -12,9 +13,9 @@ type Server struct {
 	CtrlsManager *manager.Manager
 }
 
-func NewServer(ctx context.Context, api_url string) (*Server, error) {
+func NewServer(api_url string) (*Server, error) {
 	registry := manager.NewRegistry()
-	ctrl_manager := manager.NewManager(ctx, registry)
+	ctrl_manager := manager.NewManager(registry)
 
 	app := &Server{
 		ApiServer:    api.InitHandler(api_url, ctrl_manager),
@@ -24,8 +25,9 @@ func NewServer(ctx context.Context, api_url string) (*Server, error) {
 	return app, nil
 }
 
-func (a *Server) Run() error {
-	go a.CtrlsManager.Start()
+func (a *Server) Run(parentCtx context.Context) error {
+	go a.CtrlsManager.Start(parentCtx)
 
+	log.Printf("[server] started server api")
 	return a.ApiServer.ListenAndServe()
 }

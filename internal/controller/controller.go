@@ -12,13 +12,13 @@ type Controller struct {
 	ServerComms   *servercomms.ServerConnector
 }
 
-func NewController(ctx context.Context, conf common.ControllerConfig) (*Controller, error) {
-	termComms, err := terminal.NewTerminalConnector()
+func NewController(conf common.ControllerConfig) (*Controller, error) {
+	termComms, err := terminal.NewTerminalConnector(conf.TerminalRawTcpUrl)
 	if err != nil {
 		return nil, err
 	}
 
-	wsServer, err := servercomms.NewServerConnector(ctx, conf, termComms)
+	wsServer, err := servercomms.NewServerConnector(conf, termComms)
 	if err != nil {
 		return nil, err
 	}
@@ -29,8 +29,9 @@ func NewController(ctx context.Context, conf common.ControllerConfig) (*Controll
 	}, nil
 }
 
-func (ctrl *Controller) Run() error {
-	return ctrl.ServerComms.Start()
+func (ctrl *Controller) Run(ctx context.Context) error {
+	go ctrl.TerminalComms.Run(ctx)
+	return ctrl.ServerComms.Start(ctx)
 }
 
 /**

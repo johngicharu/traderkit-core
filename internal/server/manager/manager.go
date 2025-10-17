@@ -22,9 +22,7 @@ type Manager struct {
 	cancel context.CancelFunc
 }
 
-func NewManager(parentCtx context.Context, registry *Registry) *Manager {
-	ctx, cancel := context.WithCancel(parentCtx)
-
+func NewManager(registry *Registry) *Manager {
 	return &Manager{
 		registry: registry,
 		upgrader: websocket.Upgrader{
@@ -32,17 +30,17 @@ func NewManager(parentCtx context.Context, registry *Registry) *Manager {
 		},
 		incoming: make(chan common.TaskRes),
 		Outgoing: make(chan common.TaskReq),
-		ctx:      ctx,
-		cancel:   cancel,
 	}
 }
 
-func (m *Manager) Start() {
-	log.Println("Started manager")
+func (m *Manager) Start(parentCtx context.Context) {
+	m.ctx, m.cancel = context.WithCancel(parentCtx)
+
+	log.Println("[server] Started server connection manager")
 	for {
 		select {
 		case <-m.ctx.Done():
-			log.Println("Ctx closed")
+			log.Println("[server] Ctx closed")
 		case msg := <-m.Outgoing:
 			log.Println(msg)
 		}

@@ -7,10 +7,11 @@ import (
 )
 
 type ControllerConfig struct {
-	Id          string
-	Token       string
-	ServerWsUrl string
-	Capacity    int
+	Id                string
+	Token             string
+	ServerWsUrl       string
+	TerminalRawTcpUrl string
+	Capacity          int
 }
 
 type TerminalType string

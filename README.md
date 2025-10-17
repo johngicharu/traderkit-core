@@ -46,3 +46,20 @@ brew install wgo
 ```bash
 make -j2 dev
 ```
+
+# Todo
+
+- [ ] functions for terminal init/deployment
+- [ ] Add handlers for all account actions
+- [ ] Add handlers for controller actions
+- [ ] add handlers for trade sync details
+- [ ] Complete function that clears response json files
+- [ ] mql update the json structures
+- [ ] mql ensure we have notice of whether we are acking every message or only trade messages
+- [ ] mql file saving for responses (maybe only trade responses though)
+- [ ] think through copying logic and implement
+- [ ] explore price feed structure and implement
+- [ ] admin actions for dashboard
+- [ ] user actions for dashboard
+- [ ] user metrics for dashboard
+- [ ] telegram bot for users

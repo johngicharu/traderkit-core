@@ -27,6 +27,11 @@ func main() {
 		log.Fatal("SERVER_WS_URL not set")
 	}
 
+	terminalRawTcpURL := os.Getenv("CONTROLLER_RAW_SOCKETS_URL")
+	if terminalRawTcpURL == "" {
+		log.Fatal("CONTROLLER_RAW_SOCKETS_URL not set")
+	}
+
 	controllerId := os.Getenv("CONTROLLER_ID")
 	if controllerId == "" {
 		log.Fatal("CONTROLLER_ID not set")
@@ -52,19 +57,20 @@ func main() {
 	defer cancel()
 
 	srvConfig := common.ControllerConfig{
-		Id:          controllerId,
-		Token:       apiToken,
-		ServerWsUrl: serverWsURL,
-		Capacity:    intCtrlCapacity,
+		Id:                controllerId,
+		Token:             apiToken,
+		ServerWsUrl:       serverWsURL,
+		TerminalRawTcpUrl: terminalRawTcpURL,
+		Capacity:          intCtrlCapacity,
 	}
 
-	ctrl, err := controller.NewController(ctx, srvConfig)
+	ctrl, err := controller.NewController(srvConfig)
 
 	if err != nil {
 		log.Fatalf("encountered error init app: %v", err)
 	}
 
-	log.Fatal(ctrl.Run())
+	log.Fatal(ctrl.Run(ctx))
 
 	waitForExit()
 	time.Sleep(500 * time.Millisecond)

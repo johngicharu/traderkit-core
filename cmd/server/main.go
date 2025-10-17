@@ -27,13 +27,13 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctrl, err := server.NewServer(ctx, serverTcpAddr)
+	ctrl, err := server.NewServer(serverTcpAddr)
 
 	if err != nil {
 		log.Fatalf("encountered error init app: %v", err)
 	}
 
-	log.Fatal(ctrl.Run())
+	log.Fatal(ctrl.Run(ctx))
 
 	waitForExit()
 	time.Sleep(500 * time.Millisecond)

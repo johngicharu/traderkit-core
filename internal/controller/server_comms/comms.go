@@ -33,9 +33,7 @@ type ServerConnector struct {
 	mu sync.RWMutex
 }
 
-func NewServerConnector(parentCtx context.Context, conf common.ControllerConfig, registry *terminal.TerminalConnector) (*ServerConnector, error) {
-	ctx, cancel := context.WithCancel(parentCtx)
-
+func NewServerConnector(conf common.ControllerConfig, registry *terminal.TerminalConnector) (*ServerConnector, error) {
 	return &ServerConnector{
 		serverUrl:    conf.ServerWsUrl,
 		authToken:    conf.Token,
@@ -44,15 +42,15 @@ func NewServerConnector(parentCtx context.Context, conf common.ControllerConfig,
 
 		dialer: &websocket.Dialer{HandshakeTimeout: 5 * time.Second},
 
-		ctx:           ctx,
-		cancel:        cancel,
 		registry:      registry,
 		taskRequests:  make(chan common.TaskReq),
 		taskResponses: make(chan common.TaskRes),
 	}, nil
 }
 
-func (sc *ServerConnector) Start() error {
+func (sc *ServerConnector) Start(parentCtx context.Context) error {
+	sc.ctx, sc.cancel = context.WithCancel(parentCtx)
+
 	log.Println("[ctrl] starting controller")
 	for {
 		select {
@@ -60,7 +58,7 @@ func (sc *ServerConnector) Start() error {
 			return nil
 		default:
 			if err := sc.connect(); err != nil {
-				log.Printf("[ws] connect error: %v, retrying in 5s", err)
+				log.Printf("[ctrl-ws] connect error: %v, retrying in 5s", err)
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -68,7 +66,7 @@ func (sc *ServerConnector) Start() error {
 
 		// blocks until the connection is closed and it exits to try to connect again
 		sc.handleConnection()
-		log.Println("[ws] disconnected retrying in 5s...")
+		log.Println("[ctrl-ws] disconnected retrying in 5s...")
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -84,7 +82,7 @@ func (sc *ServerConnector) connect() error {
 	conn, resp, err := sc.dialer.Dial(sc.serverUrl, headers)
 	if err != nil {
 		if resp != nil {
-			log.Printf("[ws] handshake failed with status: %d", resp.StatusCode)
+			log.Printf("[ctrl-ws] handshake failed with status: %d", resp.StatusCode)
 		}
 
 		return err
@@ -95,7 +93,7 @@ func (sc *ServerConnector) connect() error {
 	sc.registered = true
 	sc.mu.Unlock()
 
-	log.Println("[ws] connected to ", sc.serverUrl)
+	log.Println("[ctrl-ws] connected to ", sc.serverUrl)
 	return nil
 }
 
@@ -115,17 +113,21 @@ func (sc *ServerConnector) handleConnection() {
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
-				log.Printf("[ws] read error: %v", err)
+				log.Printf("[ctrl-ws] read error: %v", err)
 				sc.closeConn()
 				return
 			}
 
 			var task common.TaskReq
 			if err := json.Unmarshal(data, &task); err != nil {
-				log.Printf("[ws] invalid task: %v", err)
+				log.Printf("[ctrl-ws] invalid task: %v", err)
 				continue
 			}
 
+			/**
+							send to the respective channel so for instance have terminal requests
+			controller requests, etc. So each can have a goroutine listening to it's type of messages. For terminal related ones, they can be directly sent to the right terminal instead of routing it separately or having that entire goroutine
+						**/
 			select {
 			case sc.taskRequests <- task:
 				go sc.sendAck(task.Id)
@@ -152,13 +154,13 @@ func (sc *ServerConnector) handleConnection() {
 				sc.mu.RUnlock()
 
 				if c == nil {
-					log.Printf("[ws] write failed no active connection")
+					log.Printf("[ctrl-ws] write failed no active connection")
 					sc.queueFailedResponse(taskRes)
 					return
 				}
 
 				if err := c.WriteMessage(websocket.TextMessage, data); err != nil {
-					log.Printf("[ws] write error: %v", err)
+					log.Printf("[ctrl-ws] write error: %v", err)
 					sc.closeConn()
 					return
 				}
@@ -180,7 +182,7 @@ func (sc *ServerConnector) sendAck(taskID int) {
 	ack := map[string]any{"type": "ack", "taskId": taskID}
 	data, _ := json.Marshal(ack)
 	if err := sc.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		log.Printf("[ws] ack write error: %v", err)
+		log.Printf("[ctrl-ws] ack write error: %v", err)
 	}
 }
 
@@ -203,7 +205,7 @@ func (sc *ServerConnector) queueFailedResponse(res common.TaskRes) {
 	case sc.taskResponses <- res:
 		// queued again for resend
 	default:
-		log.Println("[ws] dropping response, queue full")
+		log.Println("[ctrl-ws] dropping response, queue full")
 	}
 }
 
