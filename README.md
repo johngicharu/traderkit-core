@@ -17,3 +17,32 @@ controller forwards it to server
 server ack's response
 controller deletes response file
 ```
+
+
+## build
+
+### server
+
+```bash
+make build-server
+# check ./bin/server as the result
+```
+
+### controller
+
+```bash
+make build-controller
+# check ./bin/controller as the result
+```
+
+## dev run (with watch)
+
+make sure you have wgo installed
+
+```bash
+brew install wgo
+```
+
+```bash
+make -j2 dev
+```
