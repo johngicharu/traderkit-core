@@ -12,12 +12,12 @@ type Server struct {
 	CtrlsManager *manager.Manager
 }
 
-func NewServer(ctx context.Context) (*Server, error) {
+func NewServer(ctx context.Context, api_url string) (*Server, error) {
 	registry := manager.NewRegistry()
 	ctrl_manager := manager.NewManager(ctx, registry)
 
 	app := &Server{
-		ApiServer:    api.InitHandler("0.0.0.0:8080", ctrl_manager),
+		ApiServer:    api.InitHandler(api_url, ctrl_manager),
 		CtrlsManager: ctrl_manager,
 	}
 

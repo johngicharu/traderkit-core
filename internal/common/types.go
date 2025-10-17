@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+type ControllerConfig struct {
+	Id          string
+	Token       string
+	ServerWsUrl string
+	Capacity    int
+}
+
 type TerminalType string
 
 const (

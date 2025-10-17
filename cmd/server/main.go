@@ -8,14 +8,26 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	log.SetOutput(os.Stdout)
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	serverTcpAddr := os.Getenv("SERVER_TCP_ADDR")
+	if serverTcpAddr == "" {
+		log.Fatal("SERVER_TCP_ADDR not set")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctrl, err := server.NewServer(ctx)
+	ctrl, err := server.NewServer(ctx, serverTcpAddr)
 
 	if err != nil {
 		log.Fatalf("encountered error init app: %v", err)

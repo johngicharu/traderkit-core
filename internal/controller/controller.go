@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"backend/internal/common"
 	servercomms "backend/internal/controller/server_comms"
 	"backend/internal/controller/terminal"
 	"context"
@@ -11,13 +12,13 @@ type Controller struct {
 	ServerComms *servercomms.ServerConnector
 }
 
-func NewController(ctx context.Context) (*Controller, error) {
+func NewController(ctx context.Context, conf common.ControllerConfig) (*Controller, error) {
 	registry, err := terminal.NewRegistry()
 	if err != nil {
 		return nil, err
 	}
 
-	wsServer, err := servercomms.NewServerConnector(ctx, "", "", "", registry)
+	wsServer, err := servercomms.NewServerConnector(ctx, conf, registry)
 	if err != nil {
 		return nil, err
 	}
@@ -28,6 +29,6 @@ func NewController(ctx context.Context) (*Controller, error) {
 	}, nil
 }
 
-func (a *Controller) Run() error {
-	return nil
+func (ctrl *Controller) Run() error {
+	return ctrl.ServerComms.Start()
 }

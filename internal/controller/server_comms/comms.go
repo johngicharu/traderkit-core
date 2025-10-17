@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ type ServerConnector struct {
 	serverUrl    string
 	authToken    string
 	controllerId string
+	capacity     int
 
 	conn          *websocket.Conn
 	dialer        *websocket.Dialer
@@ -31,13 +33,14 @@ type ServerConnector struct {
 	mu sync.RWMutex
 }
 
-func NewServerConnector(parentCtx context.Context, id, token, url string, registry *terminal.Registry) (*ServerConnector, error) {
+func NewServerConnector(parentCtx context.Context, conf common.ControllerConfig, registry *terminal.Registry) (*ServerConnector, error) {
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	return &ServerConnector{
-		serverUrl:    url,
-		authToken:    token,
-		controllerId: id,
+		serverUrl:    conf.ServerWsUrl,
+		authToken:    conf.Token,
+		controllerId: conf.Id,
+		capacity:     conf.Capacity,
 
 		dialer: &websocket.Dialer{HandshakeTimeout: 5 * time.Second},
 
@@ -49,14 +52,15 @@ func NewServerConnector(parentCtx context.Context, id, token, url string, regist
 	}, nil
 }
 
-func (sc *ServerConnector) Start() {
+func (sc *ServerConnector) Start() error {
+	log.Println("[ctrl] starting controller")
 	for {
 		select {
 		case <-sc.ctx.Done():
-			return
+			return nil
 		default:
 			if err := sc.connect(); err != nil {
-				log.Printf("[ws] connect ereror: %v, retrying in 5s", err)
+				log.Printf("[ws] connect error: %v, retrying in 5s", err)
 				time.Sleep(5 * time.Second)
 				continue
 			}
@@ -71,7 +75,8 @@ func (sc *ServerConnector) Start() {
 
 func (sc *ServerConnector) connect() error {
 	headers := http.Header{}
-	headers.Add("X-Controller-ID", sc.controllerId)
+	headers.Add("X-Controller-Id", sc.controllerId)
+	headers.Add("X-Controller-Capacity", strconv.Itoa(sc.capacity))
 	if sc.authToken != "" {
 		headers.Add("Authorization", "Bearer "+sc.authToken)
 	}

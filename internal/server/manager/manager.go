@@ -72,8 +72,8 @@ func (m *Manager) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	}*/
 
 	// Validation passed, upgrade
-	id := r.URL.Query().Get("controller_id")
-	capacity, err := strconv.Atoi(r.URL.Query().Get("capacity"))
+	id := r.Header.Get("X-Controller-Id")
+	capacity, err := strconv.Atoi(r.Header.Get("X-Controller-Capacity"))
 	if err != nil {
 		log.Printf("Invalid capacity")
 		return
