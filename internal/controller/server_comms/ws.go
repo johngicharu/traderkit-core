@@ -165,6 +165,7 @@ func (sc *ServerConnector) handleConnection() {
 }
 
 func (sc *ServerConnector) sendAck(taskID int) {
+	// we never ack the server messages, rather, we resend responses from the terminals if they are not acked
 	sc.mu.RLock()
 	defer sc.mu.RUnlock()
 	if sc.conn == nil {
