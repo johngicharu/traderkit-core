@@ -52,7 +52,7 @@ func (a *AccountsApiService) deployAccount(w http.ResponseWriter, r *http.Reques
 			Server:    account.Server,
 		},
 		ReqType:    common.AccountTask,
-		ReqSubType: common.AccountTaskDeploy,
+		ReqSubType: common.AccountTaskCreate,
 		Payload:    payloadBytes,
 	}:
 		w.Write([]byte("succesfully submitted account deployment task. please wait for updates"))

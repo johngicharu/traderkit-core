@@ -91,24 +91,25 @@ func (t *TaskType) UnmarshalJSON(b []byte) error {
 type TaskSubType string
 
 const (
-	AccountTaskDeploy   TaskSubType = "deploy"
-	AccountTaskReDeploy TaskSubType = "redeploy"
-	AccountTaskUnDeploy TaskSubType = "undeploy"
-	AccountTaskDelete   TaskSubType = "delete"
+	AccountTaskCreate  TaskSubType = "acc_create"
+	AccountTaskStart   TaskSubType = "acc_start"
+	AccountTaskStop    TaskSubType = "acc_stop"
+	AccountTaskRestart TaskSubType = "acc_restart"
+	AccountTaskDelete  TaskSubType = "acc_delete"
 
-	TradeTaskAdd TaskSubType = "add"
-	TradeTaskMod TaskSubType = "modify"
+	TradeTaskAdd TaskSubType = "trade_add"
+	TradeTaskMod TaskSubType = "trade_modify"
 
-	DataTaskSymbol    TaskSubType = "symbol"
-	DataTaskPrice     TaskSubType = "price"
-	DataTaskAccount   TaskSubType = "account"
-	DataTaskTrades    TaskSubType = "trades"
-	DataTaskPriceFeed TaskSubType = "price_feed"
+	DataTaskSymbol    TaskSubType = "dt_symbol"
+	DataTaskPrice     TaskSubType = "dt_price"
+	DataTaskAccount   TaskSubType = "dt_account"
+	DataTaskTrades    TaskSubType = "dt_trades"
+	DataTaskPriceFeed TaskSubType = "dt_price_feed"
 
-	ControllerTaskShutdown          TaskSubType = "shutdown"
-	ControllerTaskUpdateMt4Base     TaskSubType = "update_mt4"
-	ControllerTaskUpdateMt5Base     TaskSubType = "update_mt5"
-	ControllerTaskUpdateServerFiles TaskSubType = "update_server_files"
+	ControllerTaskShutdown          TaskSubType = "ctrl_shutdown"
+	ControllerTaskUpdateMt4Base     TaskSubType = "ctrl_update_mt4"
+	ControllerTaskUpdateMt5Base     TaskSubType = "ctrl_update_mt5"
+	ControllerTaskUpdateServerFiles TaskSubType = "ctrl_update_server_files"
 )
 
 func (t TaskSubType) MarshalJSON() ([]byte, error) {
@@ -123,14 +124,16 @@ func (t *TaskSubType) UnmarshalJSON(b []byte) error {
 	}
 
 	switch strings.TrimSpace(str) {
-	case string(AccountTaskDeploy):
-		*t = AccountTaskDeploy
-	case string(AccountTaskReDeploy):
-		*t = AccountTaskReDeploy
-	case string(AccountTaskUnDeploy):
-		*t = AccountTaskUnDeploy
+	case string(AccountTaskCreate):
+		*t = AccountTaskCreate
+	case string(AccountTaskStart):
+		*t = AccountTaskStart
+	case string(AccountTaskStop):
+		*t = AccountTaskStop
 	case string(AccountTaskDelete):
 		*t = AccountTaskDelete
+	case string(AccountTaskRestart):
+		*t = AccountTaskRestart
 
 	case string(TradeTaskAdd):
 		*t = TradeTaskAdd

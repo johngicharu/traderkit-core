@@ -13,18 +13,13 @@ import (
 )
 
 type Terminal struct {
-	mu                 sync.RWMutex
-	Id                 string
-	Type               common.TerminalType
-	login              int
-	password           string
-	server             string
-	broker             string
-	brokerId           string // used to name the broker files
-	tradeAllowed       bool
-	isInvestorPassword bool
-	conn               net.Conn // raw tcp connection
-	lastSeen           time.Time
+	mu       sync.RWMutex
+	Id       string
+	Type     common.TerminalType
+	login    int
+	server   string
+	conn     net.Conn // raw tcp connection
+	lastSeen time.Time
 
 	taskRequests chan common.TaskReq
 
@@ -34,21 +29,60 @@ type Terminal struct {
 	cancel       context.CancelFunc
 }
 
-func NewTerminal(parentCtx context.Context, id string, termType common.TerminalType, login int, password string, server string, broker string, brokerId string, tradeAllowed, isInvestorPassword bool, conn net.Conn) *Terminal {
+type TerminalDeploy struct {
+	Id           string
+	Type         common.TerminalType
+	Login        int
+	Password     string
+	Server       string
+	TradeAllowed bool
+}
+
+func NewTerminal(parentCtx context.Context, id string, termType common.TerminalType, login int, server string, tradeAllowed bool, conn net.Conn) *Terminal {
 	return &Terminal{
-		Id:                 id,
-		Type:               termType,
-		login:              login,
-		password:           password,
-		server:             server,
-		broker:             broker,
-		brokerId:           brokerId,
-		tradeAllowed:       tradeAllowed,
-		isInvestorPassword: isInvestorPassword,
-		conn:               conn,
-		lastSeen:           time.Now(),
-		taskRequests:       make(chan common.TaskReq),
+		Id:           id,
+		Type:         termType,
+		login:        login,
+		server:       server,
+		conn:         conn,
+		lastSeen:     time.Now(),
+		taskRequests: make(chan common.TaskReq),
 	}
+}
+
+func CreateTerminal(details TerminalDeploy) {
+	// get login details from the user
+	// get server file if present
+	// pull mt4/5 image/data and have it present locally (maybe always have it ready and then just update when needed)
+	// update config files inside mt4/5
+	// create TerminalInstance (if user scheduled start when finished deploying, we just call start later)
+}
+
+func (term *Terminal) Start() {
+	// start the terminal
+	// maybe queue a task named "wait_for_terminal_startup" on the controller
+	// controller waits for the terminal with that id to come online
+	// if it doesn't within a specific time
+	// try restarting the pod
+	// queue another wait for terminal startup task
+	// if it doesn't come online, delete the pod and start from create terminal again (of course pull terminal details - login, password, etc.)
+	// log failure to admins and maybe push logs from mt4/5 to the admin log instance (send notification maybe)
+}
+
+func (term *Terminal) Restart() {
+	// call stop
+	// call start
+}
+
+func (term *Terminal) Stop() {
+	// maybe separate normal and full close
+	// so full close stops the ea first and then closes the chart (doesn't seem to be able to done in a single call no? -> maybe just send command to close the ea and then wait for response or no messages from terminal within 2 seconds, if none, we just mark it as stopped then return)
+	// so a blocking execution (full stop)
+	// once term is stopped, we close the pod and maybe even delete it since we will have to initialize using the config method
+	// temporary/normal stop just shuts down the terminal so this is pod related
+	// send task to ea to tell it to unload + close charts?
+	// close the pod the terminal belongs to
+	// send response of the task
 }
 
 func (term *Terminal) touch() {
