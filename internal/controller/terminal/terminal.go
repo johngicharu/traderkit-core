@@ -2,24 +2,42 @@ package terminal
 
 import (
 	"backend/internal/common"
+	"backend/internal/common/config"
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
+type PodmanDetails struct {
+	volumePath string
+	configPath string
+	execPath   string
+	podId      string
+	createdAt  time.Time
+}
+
 type Terminal struct {
-	mu       sync.RWMutex
-	Id       string
-	Type     common.TerminalType
-	login    int
-	server   string
-	conn     net.Conn // raw tcp connection
-	lastSeen time.Time
+	mu             sync.RWMutex
+	Id             string
+	Type           common.TerminalType
+	login          int
+	server         string
+	conn           *net.Conn // raw tcp connection
+	lastSeen       time.Time
+	terminalPath   string
+	tradingAllowed bool
+	pod            *PodmanDetails
 
 	taskRequests chan common.TaskReq
 
@@ -30,32 +48,140 @@ type Terminal struct {
 }
 
 type TerminalDeploy struct {
-	Id           string
-	Type         common.TerminalType
-	Login        int
-	Password     string
-	Server       string
-	TradeAllowed bool
+	Id             string              `json:"id"`
+	Type           common.TerminalType `json:"type"`
+	Login          int                 `json:"login"`
+	Password       string              `json:"password"`
+	Broker         string              `json:"broker"`
+	Server         string              `json:"server"`
+	ServerFile     string              `json:"server_file"`
+	TradingAllowed bool                `json:"trading_allowed"`
 }
 
-func NewTerminal(parentCtx context.Context, id string, termType common.TerminalType, login int, server string, tradeAllowed bool, conn net.Conn) *Terminal {
+func NewTerminal(parentCtx context.Context, id string, termType common.TerminalType, login int, server string, terminalPath string, tradingAllowed bool, conn *net.Conn) *Terminal {
 	return &Terminal{
-		Id:           id,
-		Type:         termType,
-		login:        login,
-		server:       server,
-		conn:         conn,
-		lastSeen:     time.Now(),
-		taskRequests: make(chan common.TaskReq),
+		Id:             id,
+		Type:           termType,
+		login:          login,
+		server:         server,
+		conn:           conn,
+		terminalPath:   terminalPath,
+		tradingAllowed: tradingAllowed,
+		lastSeen:       time.Now(),
+		taskRequests:   make(chan common.TaskReq),
 	}
 }
 
-func CreateTerminal(details TerminalDeploy) {
+// remember to clear the directories if a failure occurs
+func setupAndStartPodmanContainer(details TerminalDeploy) (*PodmanDetails, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+
+	terminalDir := filepath.Join(homeDir, "terminals", details.Id)
+
+	// TODO -> copy files to the created directory from our default directories
+
+	if err := os.MkdirAll(terminalDir, os.ModePerm); err != nil {
+		return nil, fmt.Errorf("[ctrl] failed to create terminal directories: %v", err)
+	}
+
+	configPath := filepath.Join(terminalDir, "config.ini")
+	execPath := filepath.Join(terminalDir, "terminal64.exe")
+	if details.Type == common.MT4 {
+		execPath = filepath.Join(terminalDir, "terminal.exe")
+	}
+
+	if err := replaceConfigDetails(configPath, details.Login, details.Password, details.Server, details.Type); err != nil {
+		return nil, err
+	}
+
+	// create the pod container
+	// use the podman create command to only create and link volumes but do not start
+
+	return &PodmanDetails{
+		volumePath: terminalDir,
+		configPath: configPath,
+		execPath:   execPath,
+		createdAt:  time.Now(), // if we don't have any lastSeen greater than this, we need to delete this pod or at least recreate it -> cleanup task basically
+	}, nil
+}
+
+func replaceConfigDetails(config_path string, login int, password string, server string, term_type common.TerminalType) error {
+	// these files will not be packaged, so it's better to have them as strings somewhere
+	mainConfig := config.MT5Config
+
+	if term_type == common.MT4 {
+		mainConfig = config.MT4Config
+	}
+
+	updatedWithLogin := strings.Replace(mainConfig, "{{login}}", strconv.Itoa(login), 1)
+	updatedWithPassword := strings.Replace(updatedWithLogin, "{{password}}", password, 1)
+	updatedWithServer := strings.Replace(updatedWithPassword, "{{server}}", server, 1)
+
+	// should not attempt to create since we should have the dir already
+	/*file, err := os.OpenFile(config_path, os.O_RDONLY|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Println("failed to open or create: ", err)
+		return err
+	}
+
+	file.Close()*/
+
+	err := os.WriteFile(config_path, []byte(updatedWithServer), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateTerminal(details TerminalDeploy) error {
 	// get login details from the user
 	// get server file if present
+	if details.ServerFile == "" {
+		// fetch the correct broker file from our servers
+	}
+
 	// pull mt4/5 image/data and have it present locally (maybe always have it ready and then just update when needed)
-	// update config files inside mt4/5
+	podDetails, err := setupAndStartPodmanContainer(details)
+	if err != nil {
+		return err
+	}
+
+	if os.Getenv("USE_PODS") == "true" {
+		if err := runTerminalPodman(podDetails); err != nil {
+			return err
+		}
+	} else {
+		if err := runTerminalRaw(podDetails); err != nil {
+			return err
+		}
+	}
+
 	// create TerminalInstance (if user scheduled start when finished deploying, we just call start later)
+
+	return nil
+}
+
+func runTerminalRaw(pod *PodmanDetails) error {
+	if _, err := os.Stat(pod.execPath); os.IsNotExist(err) {
+		return fmt.Errorf("executable not found: %s", pod.execPath)
+	}
+
+	cmd := exec.Command(pod.execPath, "/portable", pod.configPath)
+	cmd.Dir = filepath.Dir(pod.execPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	fmt.Printf("Launching portable terminal: %s\n", pod.execPath)
+	return cmd.Start() // use Wait() if you want blocking
+}
+
+func runTerminalPodman(pod *PodmanDetails) error {
+	log.Printf("podman terminal run not implemented: %s", pod.podId)
+	return nil
 }
 
 func (term *Terminal) Start() {
@@ -115,7 +241,11 @@ func (term *Terminal) UpdateResponseChan(termResChan chan common.TaskRes) {
 	term.taskResponse = termResChan
 }
 
-func (term *Terminal) HandleConnection(parentCtx context.Context, conn net.Conn) {
+func (term *Terminal) HandleConnection(parentCtx context.Context, conn *net.Conn) {
+	if conn == nil {
+		return
+	}
+
 	term.mu.Lock()
 	term.conn = conn
 	term.ctx, term.cancel = context.WithCancel(parentCtx)
@@ -128,13 +258,13 @@ func (term *Terminal) HandleConnection(parentCtx context.Context, conn net.Conn)
 	term.taskRequestReader()
 
 	term.cancel()
-	conn.Close()
+	(*conn).Close()
 
 	// unregister the terminal from the registry I believe
 }
 
 func (term *Terminal) taskRequestReader() {
-	decoder := json.NewDecoder(term.conn)
+	decoder := json.NewDecoder(*term.conn)
 
 	for {
 		select {
@@ -170,6 +300,11 @@ func (term *Terminal) taskResponseWriter() {
 		case <-term.ctx.Done():
 			return
 		case data := <-term.taskRequests:
+			if term.conn == nil {
+				term.Shutdown()
+				return
+			}
+
 			rawBytes, err := json.Marshal(data)
 			if err != nil {
 				log.Printf("[term] failed to marshal req: %s: %v", term.Id, err)
@@ -182,7 +317,7 @@ func (term *Terminal) taskResponseWriter() {
 				continue
 			}
 
-			if _, err := term.conn.Write(append(compactBuffer.Bytes(), '\n')); err != nil {
+			if _, err := (*term.conn).Write(append(compactBuffer.Bytes(), '\n')); err != nil {
 				log.Printf("[term] failed to send req to term: %s: %v", term.Id, err)
 				continue
 			}

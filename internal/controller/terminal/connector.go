@@ -65,28 +65,28 @@ func (tc *TerminalConnector) acceptNewConnections(listener net.Listener) {
 		}
 
 		// pass this new connection on to the respective terminal
-		go tc.handleIncomingConnection(conn)
+		go tc.handleIncomingConnection(&conn)
 	}
 }
 
-func (tc *TerminalConnector) handleIncomingConnection(conn net.Conn) {
-	remote := conn.RemoteAddr().String()
+func (tc *TerminalConnector) handleIncomingConnection(conn *net.Conn) {
+	remote := (*conn).RemoteAddr().String()
 
 	terminal, err := tc.performHandshake(conn)
 	if err != nil {
 		log.Printf("[ctrl] handshake failed from %s: %v", remote, err)
-		conn.Close()
+		(*conn).Close()
 		return
 	}
 
 	terminal.HandleConnection(tc.ctx, conn)
 }
 
-func (tc *TerminalConnector) performHandshake(conn net.Conn) (term *Terminal, err error) {
-	_ = conn.SetDeadline(time.Now().Add(200 * time.Millisecond))
-	defer conn.SetDeadline(time.Time{})
+func (tc *TerminalConnector) performHandshake(conn *net.Conn) (term *Terminal, err error) {
+	_ = (*conn).SetDeadline(time.Now().Add(200 * time.Millisecond))
+	defer (*conn).SetDeadline(time.Time{})
 
-	decoder := json.NewDecoder(conn)
+	decoder := json.NewDecoder(*conn)
 	var res common.TaskRes
 	if err := decoder.Decode(&res); err != nil {
 		return nil, err
